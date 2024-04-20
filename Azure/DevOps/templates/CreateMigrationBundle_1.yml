@@ -1,0 +1,23 @@
+parameters:
+  - name: name
+    type: string
+  - name: spnName
+    type: string
+  - name: context
+    type: string
+  - name: projectPath
+    type: string
+  - name: connStr
+    type: string
+  - name: outputPath
+    type: string
+
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: "Create EF Migrations Bundle - ${{ parameters.name }}"
+    inputs:
+      command: custom
+      custom: "ef"
+      arguments: "migrations bundle --verbose --configuration EFBundle --context ${{ parameters.context }} --project ${{ parameters.projectPath }} --output ${{ parameters.outputPath }}/${{ parameters.name }}_efbundle.exe"
+    env:
+      ConnectionStrings__DefaultConnection: ${{ parameters.connStr }}

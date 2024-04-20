@@ -1,0 +1,30 @@
+parameters:
+  - name: appName
+    type: string
+  - name: spnName
+    type: string
+
+steps:
+  - task: AzureAppServiceSettings@1
+    displayName: "Azure App Service Settings: ${{ parameters.appName }}"
+    inputs:
+      azureSubscription: ${{ parameters.spnName }}
+      appName: ${{ parameters.appName }}
+      # To deploy the settings on a slot, provide slot name as below. By default, the settings would be applied to the actual Web App (Production slot)
+      # slotName: staging
+      appSettings: |
+        [
+          {
+            "name": "InfraSettings__AzureAppConfigUri",
+            "value": "$(InfraSettings__AzureAppConfigUri)",
+            "slotSetting": false
+          }
+        ]
+      generalSettings: |
+        [
+          {
+            "alwaysOn": true,
+            "webSocketsEnabled": true,
+            "http20Enabled": true
+          }
+        ]

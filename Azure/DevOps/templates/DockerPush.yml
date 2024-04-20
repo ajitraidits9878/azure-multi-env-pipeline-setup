@@ -1,0 +1,31 @@
+parameters:
+  - name: repository
+    type: string
+  - name: name
+    type: string
+  - name: tarFilePath
+    type: string
+  - name: buildId
+    type: string
+
+steps:
+  - task: Docker@2
+    displayName: "Load Image from Tar: ${{ parameters.name }}"
+    inputs:
+      command: load
+      arguments: "--input ${{ parameters.tarFilePath }}/${{ parameters.name }}.image.tar"
+
+  - task: Docker@2
+    displayName: "Re-Tag Image to Latest: ${{ parameters.name }}"
+    inputs:
+      repository: ${{ parameters.repository }}
+      command: tag
+      arguments: "${{ parameters.repository }}:${{ parameters.buildId }} $(ContainerRegistryName)/${{ parameters.repository }}:latest"
+
+  - task: Docker@2
+    displayName: "Push to ACR: ${{ parameters.name }}"
+    inputs:
+      command: push
+      repository: ${{ parameters.repository }}
+      tags: |
+        latest

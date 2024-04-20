@@ -1,0 +1,19 @@
+steps:
+  - powershell: |
+      git config http.extraheader "Authorization: Bearer $(System.AccessToken)"
+
+      if (-not [string]::IsNullOrEmpty("$(ReleaseVersion)")) {
+          # Check if the tag exists
+          $tagExists = git ls-remote --tags origin $(ReleaseVersion)
+
+          if ($tagExists) {
+              Write-Host "Tag $(ReleaseVersion) already exists. Skipping Git Tag..."
+          } else{
+                # Create and push the new tag
+                git tag $(ReleaseVersion)
+                git push origin $(ReleaseVersion)
+          }
+      } else {
+          Write-Host "ReleaseVersion is empty. Skipping 'Tag the Release' step."
+      }
+    displayName: "Git Tag the Release"

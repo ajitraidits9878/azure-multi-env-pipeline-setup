@@ -1,0 +1,209 @@
+# Pipeline: Service2 - STG CI/CD
+# Trigger: Push to 'stg' branch when Service2 source files change
+# Stages:
+#   CI  - Build artifacts, create EF migration bundles, push Docker image to ACR, tag release
+#   CD  - Deploy to Staging environment, apply migrations, run SQL scripts, validate
+
+name: Service2 - STG CI/CD
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - stg
+    exclude:
+      - others
+  paths:
+    include:
+      - /src/Common/*
+      - /src/Service2/*
+      - /tests/Common/*
+      - /tests/Service2/*
+    exclude:
+      - /Azure/*
+      - /DevOps/*
+
+stages:
+  # ============================================================
+  # STAGE 1: Continuous Integration
+  # ============================================================
+  - stage: "CI"
+    displayName: "CI: Build Artifacts"
+    pool: "STG POOL"
+    variables:
+      buildConfiguration: "Release"
+
+    jobs:
+      - job: BuildPublish
+        displayName: "Build & Publish Artifacts"
+        steps:
+          # --------------------------------------------------
+          # Step 1: Restore & Build
+          # --------------------------------------------------
+          - template: "../../templates/BuildMainSTG.yml"
+            parameters:
+              project: "src/Service2/Service2.sln"
+
+          # --------------------------------------------------
+          # Step 2: Web Publish
+          # --------------------------------------------------
+          - template: "../../templates/WebPublish.yml"
+            parameters:
+              project: "src/Service2/Service2.sln"
+
+          # --------------------------------------------------
+          # Step 3: Docker Build & Save to TAR
+          # --------------------------------------------------
+          - template: "../../templates/CreateFolder.yml"
+            parameters:
+              folderPath: "$(Build.ArtifactStagingDirectory)/Images"
+
+          - template: "../../templates/DockerBuild.yml"
+            parameters:
+              name: "Service2"
+              repository: "api/service2"
+              buildContextPath: "src/Service2/Service2.API"
+
+          - publish: "$(Build.ArtifactStagingDirectory)/Images"
+            displayName: "Publish Artifact: Docker Images"
+            artifact: "Images"
+
+          # --------------------------------------------------
+          # Step 4: EF Migration Bundles
+          # --------------------------------------------------
+          - template: "../../templates/CreateFolder.yml"
+            parameters:
+              folderPath: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+
+          - template: "../../templates/CreateMigrationBundle.yml"
+            parameters:
+              outputPath: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+              name: "Events"
+              spnName: "STG SPN"
+              projectPath: "src/Common/Persistence.Common"
+              connStr: $(STG_EventDbConnectionString)
+              context: "EventSqlDbContext"
+
+          - template: "../../templates/CreateMigrationBundle.yml"
+            parameters:
+              outputPath: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+              name: "Service2"
+              spnName: "STG SPN"
+              projectPath: "src/Service2/Service2.API"
+              connStr: $(STG_Service2DbConnectionString)
+              context: "Service2DbContext"
+
+          # --------------------------------------------------
+          # Step 5: Archive & Publish EF Migrations
+          # --------------------------------------------------
+          - task: ArchiveFiles@2
+            displayName: "Zip EF Migrations"
+            inputs:
+              rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+              includeRootFolder: false
+              archiveType: 'tar'
+              archiveFile: "$(Build.ArtifactStagingDirectory)/ef_migrations.tar"
+
+          - publish: "$(Build.ArtifactStagingDirectory)/ef_migrations.tar"
+            displayName: "Publish Artifact: EF Migrations"
+            artifact: "EFMigrations"
+
+          # --------------------------------------------------
+          # Step 6: SQL Scripts
+          # --------------------------------------------------
+          - template: "../../templates/SQL/MergeSqlFiles.yml"
+            parameters:
+              serviceName: "Service2"
+              rootFolder: "src/Service2/SQL/"
+
+          # --------------------------------------------------
+          # Step 7: Tag Release Version
+          # --------------------------------------------------
+          - template: "../../templates/GetRelVersionTag.yml"
+
+          - template: "../../templates/GitPushTag.yml"
+
+          - powershell: |
+              Write-Host "##vso[build.addbuildtag]Completed"
+            displayName: "Tag Build as Completed"
+
+  # ============================================================
+  # STAGE 2: Continuous Deployment → Staging
+  # ============================================================
+  - stage: "CD_STG"
+    dependsOn: "CI"
+    displayName: "CD: Deploy to Staging"
+    pool: "Default"
+    variables:
+      buildConfiguration: "Release"
+    jobs:
+      - deployment: "STG"
+        displayName: "Deploy to Staging"
+        environment: "STG"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: "../../templates/SetupDeployTemplate.yml"
+
+                - template: "../../templates/GetRelVersionTag.yml"
+
+                - template: "../../templates/ResetLeaseCaches.yml"
+
+                # Push Docker image to ACR
+                - task: Docker@2
+                  displayName: "Login to ACR"
+                  inputs:
+                    command: login
+                    containerRegistry: $(ContainerRegistry)
+
+                - template: "../../templates/DockerRelPush.yml"
+                  parameters:
+                    name: "Service2"
+                    repository: "api/service2"
+                    tarFilePath: "$(Pipeline.Workspace)/Images"
+                    buildId: "$(Build.BuildId)"
+
+                - task: Docker@2
+                  displayName: "Logout from ACR"
+                  inputs:
+                    command: logout
+                    containerRegistry: $(ContainerRegistry)
+
+                # Apply EF Migrations
+                - task: ExtractFiles@1
+                  displayName: "Un-Zip EF Migrations"
+                  inputs:
+                    archiveFilePatterns: "$(Pipeline.Workspace)/EFMigrations/*.tar"
+                    destinationFolder: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+
+                - template: "../../templates/ApplyMigrationsBundle.yml"
+                  parameters:
+                    bundlePath: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+                    name: "Events"
+                    spnName: "STG SPN"
+                    connStr: $(STG_EventDbConnectionString)
+
+                - template: "../../templates/ApplyMigrationsBundle.yml"
+                  parameters:
+                    bundlePath: "$(Build.ArtifactStagingDirectory)/EFMigrations"
+                    name: "Service2"
+                    spnName: "STG SPN"
+                    connStr: $(STG_Service2DbConnectionString)
+
+                # Run SQL Scripts
+                - template: "../../templates/SQL/ExecuteSqlScripts.yml"
+                  parameters:
+                    serviceName: "Service2"
+                    rootFolder: "$(Pipeline.Workspace)/Service2/"
+                    spnName: "STG SPN"
+                    connectionString: $(StgSqlConnectionString)
+
+                # Post-deployment Health Check
+                - template: "../../templates/ServicePostDeploymentValidation.yml"
+                  parameters:
+                    service: $(SERVICE-STG-API-SERVICE2)
+
+                - powershell: |
+                    Write-Host "Deployment to STAGING completed successfully."
+                  displayName: "Log Deployment Completion"

@@ -1,0 +1,83 @@
+# Pipeline: NuGet Package - Artifact Feed Upload
+# Trigger: Push to 'dev', 'stg', or 'prod' branches when shared library source files change
+# Purpose: Pack NuGet packages for Service1 and Service2 shared libraries
+#          and publish them to the internal Azure Artifacts feed
+
+name: NuGet Package - Artifact Feed Upload
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - dev
+      - stg
+      - prod
+  paths:
+    include:
+      - '/src/Service1/*'
+      - '/tests/Service1/*'
+      - '/src/Service2/*'
+      - '/tests/Service2/*'
+    exclude:
+      - '/Azure/*'
+      - '/DevOps/*'
+
+pool:
+  name: 'Default'
+
+variables:
+  PackageVersion: '$(Build.BuildNumber)'
+
+stages:
+  - stage: BuildAndPublish
+    displayName: "Build & Publish NuGet Packages"
+    jobs:
+      - job: BuildAndPublishJob
+        displayName: "Pack & Push to Artifact Feed"
+        steps:
+          - checkout: self
+            persistCredentials: true
+
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK 8.0'
+            inputs:
+              version: '8.0.403'
+
+          - task: NuGetAuthenticate@1
+            displayName: 'Authenticate NuGet Feed'
+
+          # Set a timestamped pre-release version for CI builds
+          - powershell: |
+              $currentDateTime = Get-Date -Format 'yyyyMMdd-HHmmss'
+              $packageVersion = "1.0.0-CI-$currentDateTime"
+              Write-Host "##vso[task.setvariable variable=PackageVersion]$packageVersion"
+            displayName: 'Set CI Package Version'
+            env:
+              PackageVersion: $(PackageVersion)
+
+          # Pack Service1 shared libraries
+          - task: DotNetCoreCLI@2
+            displayName: 'Pack: Service1 NuGet Package'
+            inputs:
+              command: "pack"
+              packagesToPack: "src/Service1/**/*.csproj"
+              versioningScheme: 'byEnvVar'
+              versionEnvVar: 'PackageVersion'
+
+          # Pack Service2 shared libraries
+          - task: DotNetCoreCLI@2
+            displayName: 'Pack: Service2 NuGet Package'
+            inputs:
+              command: "pack"
+              packagesToPack: "src/Service2/**/*.csproj"
+              versioningScheme: 'byEnvVar'
+              versionEnvVar: 'PackageVersion'
+
+          # Push all packed packages to the internal feed
+          - task: DotNetCoreCLI@2
+            displayName: 'Push NuGet Packages to Internal Feed'
+            inputs:
+              command: 'push'
+              packagesToPush: '$(Build.ArtifactStagingDirectory)/*.nupkg'
+              nuGetFeedType: 'internal'
+              publishVstsFeed: '$(NuGetFeedName)'

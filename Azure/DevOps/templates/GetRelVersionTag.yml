@@ -1,0 +1,61 @@
+steps:
+  - powershell: |
+      $prId = "$(Build.SourceVersionMessage)"
+      $originalString = $prId
+      $pattern = "Merged PR (\d+):"
+      $prFound = $true
+      $highestReleaseVersion = ""
+      if ($originalString -match $pattern) {
+          $prId = $Matches[1]
+          Write-Host "PR-ID : $prId"
+      } else {
+          $prFound = $false
+          Write-Warning "Pull Request ID not Found."
+          Write-Host "##vso[task.setvariable variable=ReleaseVersion]$highestReleaseVersion"
+      }
+
+      if ($prFound -eq $true) {
+        $patToken = "$(System.AccessToken)"
+        $prNumber = $prId
+
+        $url = "$(AzureRestApiBaseURL)/git/repositories/$(Build.Repository.Name)/pullRequests/$prNumber/workitems?api-version=7.0"
+        Write-Host "URL to get work Item from PR : $url"
+
+        $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($patToken)"))
+        }
+
+        $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+
+        $releaseVersions = @()
+
+        foreach ($workItem in $response.value) {
+            $id = $workItem.id
+            Write-Host "Processing work item ID: $id"
+
+            $urlForCustomTag = "$(AzureRestApiBaseURL)/wit/workitems/$id/?api-version=7.0"
+            Write-Host "url: $urlForCustomTag"
+
+            $responseCustomTag = Invoke-RestMethod -Uri $urlForCustomTag -Headers $headers -Method Get
+            $fields = $responseCustomTag.fields
+
+            $releaseVersion = $fields.'Custom.ReleaseVersion'
+
+            if (-not [string]::IsNullOrWhiteSpace($releaseVersion)) {
+                $releaseVersions += $releaseVersion
+            }
+        }
+
+        if ($releaseVersions.Count -gt 1) {
+          $sortedReleaseVersions = $releaseVersions | Sort-Object -Descending
+          $highestReleaseVersion = $sortedReleaseVersions[0]
+          Write-Host "All Custom.ReleaseVersion values: $($releaseVersions -join ', ')"
+          Write-Host "Highest Version Custom.ReleaseVersion: $highestReleaseVersion"
+        }else{
+          $highestReleaseVersion = $releaseVersions[0]
+        }
+
+        Write-Host "Highest Version Custom.ReleaseVersion: $highestReleaseVersion"
+        Write-Host "##vso[task.setvariable variable=ReleaseVersion]$highestReleaseVersion"
+      }
+    displayName: "Get Version Of Release"

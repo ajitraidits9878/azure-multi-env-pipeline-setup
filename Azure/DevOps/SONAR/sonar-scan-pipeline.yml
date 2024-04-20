@@ -1,0 +1,60 @@
+# Pipeline: SonarCloud - Security & Quality Scan
+# Trigger: Push to 'dev' or 'stg' branches
+# Purpose: Run OWASP dependency check, SonarCloud code analysis,
+#          unit tests with coverage, and notify results via SendGrid
+
+name: SonarCloud - Security & Quality Scan
+
+trigger:
+  branches:
+    include:
+      - 'dev'
+      - 'stg'
+
+pool:
+  name: "Default"
+  demands:
+    - java
+    - npm
+
+workspace:
+  clean: all
+
+steps:
+  # --------------------------------------------------
+  # Step 1: Fetch all branches for SonarCloud diff analysis
+  # --------------------------------------------------
+  - task: CmdLine@2
+    displayName: 'Checkout Origin (Full Fetch)'
+    inputs:
+      script: |
+        git config http.extraheader "Authorization: Bearer $(System.AccessToken)"
+        git fetch origin
+
+  # --------------------------------------------------
+  # Step 2: Restore & Build
+  # NOTE: Replace 'Service.API.sln' with your actual solution file path
+  # --------------------------------------------------
+  - template: "../templates/sonar/SetupBuildTemplatePR.yml"
+    parameters:
+      project: "src/Service1/Service1.sln"
+
+  # --------------------------------------------------
+  # Step 3: OWASP Dependency Check
+  # --------------------------------------------------
+  - template: "../templates/owasp-scan.yml"
+
+  - template: "../templates/owasp-report-check.yml"
+
+  # --------------------------------------------------
+  # Step 4: SonarCloud Analysis
+  # --------------------------------------------------
+  - template: "../templates/sonar/SonarCloudPrepare.yml"
+    parameters:
+      project: "src/Service1/Service1.sln"
+
+  - template: "../templates/RunUnitTests.yml"
+    parameters:
+      project: "src/Service1/Service1.sln"
+
+  - template: "../templates/sonar/SonarCloudAnalyze.yml"

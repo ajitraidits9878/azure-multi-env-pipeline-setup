@@ -1,0 +1,11 @@
+parameters:
+  - name: projectPath
+    type: string
+
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: "Migration Build - ${{ parameters.projectPath }}"
+    inputs:
+      command: build
+      projects: "${{ parameters.projectPath }}"
+      arguments: "-r linux-x64 --no-self-contained"

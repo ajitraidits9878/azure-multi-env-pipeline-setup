@@ -1,0 +1,24 @@
+parameters:
+  - name: project
+    type: string
+
+steps:
+  - script: |
+      npm install --force
+    displayName: "npm install"
+
+  - task: UseDotNet@2
+    displayName: "Install .NET Core sdk 8.0"
+    inputs:
+      version: "8.0.403"
+
+  - task: NuGetAuthenticate@1
+    displayName: "NuGet Authenticate"
+
+  - task: DotNetCoreCLI@2
+    displayName: "NuGet Feed Restore"
+    inputs:
+      command: "restore"
+      projects: "${{ parameters.project }}"
+      feedsToUse: "select"
+      vstsFeed: "eafb28bf-aef1-4e1c-ae3b-e70cbabf794e/bf8aecbb-5880-41be-9683-b2a6ae9c526f"

@@ -1,0 +1,23 @@
+parameters:
+  - name: name # name of the parameter; required
+    type: string # data type of the parameter; required
+  - name: fileName
+    type: string
+  - name: spnName
+    type: string
+  - name: serverName
+    type: string
+  - name: dbName
+    type: string
+
+steps:
+  - task: SqlAzureDacpacDeployment@1
+    displayName: "Run EF Migrations - ${{ parameters.name }}"
+    inputs:
+      azureConnectionType: "ConnectedServiceNameARM"
+      azureSubscription: ${{ parameters.spnName }}
+      authenticationType: "servicePrincipal"
+      ServerName: ${{ parameters.serverName }}
+      DatabaseName: ${{ parameters.dbName }}
+      deployType: SqlTask
+      SqlFile: "$(System.ArtifactsDirectory)/EFMigrations/${{ parameters.fileName }}"

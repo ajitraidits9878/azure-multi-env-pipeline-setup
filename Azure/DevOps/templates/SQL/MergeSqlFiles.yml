@@ -1,0 +1,43 @@
+parameters:
+  - name: serviceName
+    type: string
+  - name: rootFolder
+    type: string
+
+steps:
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+        try {
+          $sqlFiles = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/${{ parameters.rootFolder }}" -Filter "*.sql" -Recurse | Sort-Object FullName
+          $mergedSql = ''
+          foreach ($file in $sqlFiles) {
+            $mergedSql += Get-Content -Path $file.FullName | Out-String
+          }
+
+          $mergedSql | Out-File -FilePath "$(System.DefaultWorkingDirectory)/${{ parameters.rootFolder }}${{ parameters.serviceName }}.sql"
+        }catch {
+          Write-Host $_.Exception.Message
+        }
+
+  - task: PowerShell@2
+    displayName: "Check if ${{ parameters.serviceName }}.sql exists"
+    inputs:
+      targetType: 'inline'
+      script: |
+        $fileExists = Test-Path -Path '$(System.DefaultWorkingDirectory)/${{ parameters.rootFolder }}${{ parameters.serviceName }}.sql'
+        if ($fileExists) {
+          Write-Host "File exists. Publishing artifact..."
+          Write-Host "##vso[task.setvariable variable=FileExists]True"
+        } else {
+          Write-Host "File does not exist. Skipping artifact publishing."
+          Write-Host "##vso[task.setvariable variable=FileExists]False"
+        }
+
+  - task: PublishPipelineArtifact@1
+    displayName: "Publish ${{ parameters.serviceName }}.sql artifact"
+    inputs:
+      targetPath: "$(System.DefaultWorkingDirectory)/${{ parameters.rootFolder }}${{ parameters.serviceName }}.sql"
+      artifactName: "${{ parameters.serviceName }}"
+    condition: eq(variables['FileExists'], 'True')

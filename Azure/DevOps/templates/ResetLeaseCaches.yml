@@ -1,0 +1,28 @@
+steps:
+  - task: PowerShell@2
+    displayName: 'Cache Reset'
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        try {
+            $url = '$(RESET_SERVICE_CACHES_API_URL)'
+            $headers = @{
+                'X-Api-Key'    = '$(X-API-KEY)'
+                'Accept'       = 'application/json'
+                'Content-Type' = 'application/json'
+            }
+            $jsonPayload = ConvertTo-Json @{
+                keyPatterns = @($(CACHE_KEY_PATTERNS))
+            }
+            Write-Host $jsonPayload
+            $response = Invoke-RestMethod -Uri $url -Method Put -Headers $headers -Body $jsonPayload
+            Write-Host "Api Executed successfully."
+            Return
+          }
+        catch {
+          Write-Host "Error occurred: $_"
+          Write-Error "Failed to call the API. Pipeline will be failed."
+          Return
+        }
+

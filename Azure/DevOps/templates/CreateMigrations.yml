@@ -1,0 +1,33 @@
+parameters:
+  - name: name
+    type: string
+  - name: context
+    type: string
+  - name: project
+    type: string
+  - name: outputPath
+    type: string
+  - name: spnName
+    type: string
+
+steps:
+  - task: AzureCLI@2
+    displayName: "Create EF Migrations Script - ${{ parameters.name }}"
+    inputs:
+      azureSubscription: ${{ parameters.spnName }}
+      scriptType: "pscore"
+      scriptLocation: "inlineScript"
+      inlineScript: "dotnet ef migrations script --context ${{ parameters.context }} --idempotent --project ${{ parameters.project }} --output $(Build.ArtifactStagingDirectory)/EFMigrations/${{ parameters.outputPath }}"
+    env:
+      ConnectionStrings__EventDbConnection: $(EventDbConnectionString)
+      ConnectionStrings__ConfigDbConnection: $(ConfigDbConnectionString)
+      ConnectionStrings__IdentityDbConnection: $(IdentityDbConnectionString)
+      ConnectionStrings__DealsDbConnection: $(DealsDbConnectionString)
+      ConnectionStrings__CustomersDbConnection: $(CustomersDbConnectionString)
+      ConnectionStrings__UnitsDbConnection: $(UnitsDbConnectionString)
+      ConnectionStrings__ViewsDbConnection: $(ViewsDbConnectionString)
+      ConnectionStrings__NotesDbConnection: $(NotesDbConnectionString)
+      ConnectionStrings__CreditApplicationsDbConnection: $(CreditApplicationsDbConnectionString)
+      ConnectionStrings__ProductsDbConnection: $(ProductsDbConnectionString)
+      ConnectionStrings__DocsDbConnection: $(DocsDbConnectionString)
+      ConnectionStrings__CreditDbConnection: $(CreditDbConnectionString)

@@ -1,0 +1,12 @@
+parameters:
+  - name: folderPath
+    type: string
+
+steps:
+  - task: PowerShell@2
+    displayName: "Create Folder - ${{ parameters.folderPath }}"
+    inputs:
+      targetType: "inline"
+      script: |
+        if (Test-Path "${{ parameters.folderPath }}") { Write-Host "${{ parameters.folderPath }} exists..." }
+        else { New-Item -ItemType Directory "${{ parameters.folderPath }}" }

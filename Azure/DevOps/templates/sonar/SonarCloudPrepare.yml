@@ -1,0 +1,49 @@
+parameters:
+  - name: project
+    type: string
+
+steps:
+  - task: SonarCloudPrepare@3
+    inputs:
+      SonarCloud: "alignpartners_ODL.Proto.API"
+      organization: "alignpartners"
+      scannerMode: "dotnet"
+      projectKey: "alignpartners_ODL.Proto.API"
+      projectName: "ODL.Proto.API"
+      extraProperties: |
+        # Additional properties that will be passed to the scanner,
+        # Put one key=value per line, example:
+        sonar.projectKey=alignpartners_ODL.Proto.API
+        sonar.organization=alignpartners
+        # This is the name and version displayed in the SonarCloud UI.
+        sonar.projectName=ODL.Proto.API
+        sonar.projectVersion=1.0
+        # Encoding of the source code. Default is default system encoding
+        sonar.sourceEncoding=UTF-8
+        # This code will create analysis on new code
+        sonar-scanner -Dsonar.analysis.mode=incremental
+        # This code will create code coverage from tests case analysis
+        sonar.cs.opencover.reportsPaths="/agent/_work/_temp/**/coverage.opencover.xml"
+        sonar.coverage.jacoco.xmlReportPaths="/agent/_work/_temp/**/coverage.opencover.xml"
+        # This code will fail build
+        #sonar.qualitygate.wait=true
+        #sonar.qualitygate.timeout=300
+        # This code for language focused for analysis
+        sonar.language=cs
+        sonar.cs.analyzer.projectOutPaths=**/bin/**,**/obj/**
+        sonar.verbose=true
+        sonar.coverage.exclusions=src/Services/FuncApp/ODL.FuncApp/Program.cs,src/Clients/ODL.Config.API.Client/Constants.cs,src/Common/ODL.Application.Common/Validations/ValidationLanguageManager.cs
+        sonar.exclusions=**/*.xml,**/Migrations/**,**/*.bin
+        sonar.inclusions=**/*.cs
+        sonar.pullrequest.provider="Azure DevOps Services"
+        sonar.scm.disabled=true
+        sonar.project.monorepo.enabled=true
+        sonar.dependencyCheck.xmlReportPath="$(System.DefaultWorkingDirectory)/TestResults/dependency-check/dependency-check-report.xml"
+        sonar.dependencyCheck.reportPath="$(System.DefaultWorkingDirectory)/TestResults/dependency-check/dependency-check-report.xml"
+        sonar.dependencyCheck.securityHotspot=true
+
+  - task: DotNetCoreCLI@2
+    displayName: "Build Services"
+    inputs:
+      command: "build"
+      projects: "${{ parameters.project }}"

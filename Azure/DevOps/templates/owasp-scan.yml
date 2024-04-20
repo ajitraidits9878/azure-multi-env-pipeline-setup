@@ -1,0 +1,12 @@
+steps:
+  - task: dependency-check-build-task@6
+    displayName: "OWASP Scan"
+    inputs:
+      projectName: 'ProjectName'
+      scanPath: '**/*.csproj'
+      format: 'XML, HTML, CSV, JSON, JUNIT, SARIF, ALL'
+      uploadReports: true
+      uploadSARIFReport: true
+      dependencyCheckVersion: 8.2.1
+    retryCountOnTaskFailure: 5
+    continueOnError: true

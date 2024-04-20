@@ -1,0 +1,5 @@
+steps:
+  - task: UseDotNet@2
+    displayName: "Install .NET Core sdk 8.0"
+    inputs:
+      version: "8.0.403" # replace this value with the version that you need for your project - https://github.com/dotnet/core/blob/master/release-notes/releases-index.json

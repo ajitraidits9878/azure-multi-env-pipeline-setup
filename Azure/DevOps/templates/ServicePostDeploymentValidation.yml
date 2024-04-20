@@ -1,0 +1,22 @@
+parameters:
+  - name: service
+    type: string
+
+steps:
+  - task: PowerShell@2
+    displayName: Check Service Status ${{ parameters.service }}
+    inputs:
+      targetType: "inline"
+      script: |
+        $url = "${{ parameters.service }}"
+        try {
+          $response = Invoke-WebRequest -Uri $url
+          if ($response.StatusCode -ne 200) {
+            Write-Error "API returned status code $($response.StatusCode). Pipeline will be failed."
+            Return
+          }
+        }
+        catch {
+          Write-Error "Failed to call the API. Pipeline will be failed."
+          Return
+        }

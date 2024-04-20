@@ -1,0 +1,33 @@
+parameters:
+  - name: service
+    type: string
+
+steps:
+  - task: SendGridEmail@2
+    inputs:
+      SendGridApiKey: '$(SENDGRID-KEY)'
+      FromAddress: 'devops@onedealerlane.com'
+      ToAddresses: $(build.requestedForEmail)
+      Subject: 'ODL.Proto.API : Sonar Scan Pipeline Report'
+      emailBodyFormat: 'InLine'
+      EmailBody: |
+        <!DOCTYPE html>
+                <html lang="en">
+
+                <head>
+                    <meta charset="UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                    <title>Sonar Report</title>
+                </head>
+
+                <body>
+                    <h1>
+                        After the sonar pipeline was executed new report was generated in the sonar
+                    </h1>
+                    <b>Service Name : "${{ parameters.service }}"</b><br>
+                    <a href="https://sonarcloud.io/project/overview?id=alignpartners_ODL.Proto.API">Sonar Report Link</a>
+                </body>
+
+                </html>
+      SendAsHTML: true
+    condition: always()

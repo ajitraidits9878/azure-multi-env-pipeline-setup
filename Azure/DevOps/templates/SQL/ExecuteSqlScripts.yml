@@ -1,0 +1,39 @@
+parameters:
+  - name: serviceName
+    type: string
+  - name: connectionString
+    type: string
+  - name: rootFolder
+    type: string
+  - name: spnName
+    type: string
+
+steps:
+  - task: PowerShell@2
+    displayName: "Check if ${{ parameters.serviceName }}.sql exists"
+    inputs:
+      targetType: "inline"
+      script: |
+        $fileExists = Test-Path -Path '${{ parameters.rootFolder }}${{ parameters.serviceName }}.sql'
+        if ($fileExists) {
+          Write-Host "File exists. Executing script..."
+            Write-Host "##vso[task.setvariable variable=FileExists]True"
+        } else {
+          Write-Host "File does not exist. Skipping executing script."
+          Write-Host "##vso[task.setvariable variable=FileExists]False"
+        }
+
+  - task: AzurePowerShell@5
+    displayName: "Run SQL script for ${{ parameters.serviceName }}"
+    inputs:
+      azureSubscription: "${{ parameters.spnName }}"
+      ScriptType: "InlineScript"
+      azurePowerShellVersion: latestVersion
+      Inline: |
+        $sqlFilePath = "${{ parameters.rootFolder }}${{ parameters.serviceName }}.sql"
+        $connectionString = $env:ConnectionStrings__DefaultConnection
+        $query = Get-Content -Path $sqlFilePath | Out-String
+        Invoke-Sqlcmd -Query $query -verbose -ConnectionString $connectionString
+    env:
+      ConnectionStrings__DefaultConnection: ${{ parameters.connectionString }}
+    condition: eq(variables['FileExists'], 'True')

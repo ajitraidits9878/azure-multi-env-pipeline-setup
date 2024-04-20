@@ -1,0 +1,14 @@
+parameters:
+  - name: name
+    type: string
+  - name: connStr
+    type: string
+  - name: bundlePath
+    type: string
+
+steps:
+  - script: |
+      ${{ parameters.bundlePath }}/${{ parameters.name }}_efbundle.exe --verbose --connection '${{ parameters.connStr }}'
+    displayName: "Apply EF Migrations Bundle - ${{ parameters.name }}"
+    env:
+      ConnectionStrings__DefaultConnection: ${{ parameters.connStr }}

@@ -1,0 +1,14 @@
+parameters:
+  - name: timeoutInMinutes
+    type: number
+  - name: email
+    type: string
+
+steps:
+  - task: ManualValidation@0
+    timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+    inputs:
+      notifyUsers: |
+        ${{ parameters.email }}
+      instructions: "Please review and approve the deployment."
+      onTimeout: "reject"

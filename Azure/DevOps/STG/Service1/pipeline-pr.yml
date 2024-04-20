@@ -1,0 +1,32 @@
+# Pipeline: Service1 - PR Validation (STG)
+# Trigger: Pull Requests targeting the 'stg' branch
+# Purpose: Run build and unit tests before merging to staging
+
+name: Service1 - PR Validation (STG)
+
+pr:
+  branches:
+    include:
+      - stg
+  paths:
+    include:
+      - /src/Service1/*
+      - /tests/Service1/*
+    exclude:
+      - /Azure/*
+      - /DevOps/*
+
+pool:
+  name: "STG POOL"
+
+workspace:
+  clean: all
+
+steps:
+  - template: "../../templates/SetupBuildTemplatePR.yml"
+    parameters:
+      project: "src/Service1/Service1.sln"
+
+  - template: "../../templates/RunUnitTests.yml"
+    parameters:
+      project: "src/Service1/Service1.sln"

@@ -1,0 +1,18 @@
+parameters:
+- name: repository
+  type: string
+- name: dockerFilePath
+  type: string
+- name: buildContextPath
+  type: string
+
+steps:
+- task: Docker@2
+  displayName: "Push to ACR: ${{ parameters.repository }}"
+  inputs:
+    command: buildAndPush
+    repository: ${{ parameters.repository }}
+    dockerfile: "${{ parameters.dockerFilePath }}"
+    buildContext: "${{ parameters.buildContextPath }}"
+    tags: |
+      latest

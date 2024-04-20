@@ -1,0 +1,33 @@
+parameters:
+  - name: name
+    type: string
+  - name: spnName
+    type: string
+  - name: context
+    type: string
+  - name: projectPath
+    type: string
+  - name: connStr
+    type: string
+  - name: outputPath
+    type: string
+
+steps:
+  - task: PowerShell@2
+    displayName: "Clear AZ Context"
+    inputs:
+      targetType: "inline"
+      script: |
+        Clear-AzContext -Scope CurrentUser -Force -ErrorAction:Stop
+        Clear-AzContext -Scope Process -Force -ErrorAction:Stop
+
+  - task: AzurePowerShell@5
+    displayName: "Create EF Migrations Bundle - ${{ parameters.name }}"
+    retryCountOnTaskFailure: 2
+    inputs:
+      azureSubscription: "${{ parameters.spnName }}"
+      scriptType: "inlineScript"
+      azurePowerShellVersion: latestVersion
+      inline: "dotnet ef migrations bundle -r linux-x64 --verbose --configuration EFBundle --context ${{ parameters.context }} --project ${{ parameters.projectPath }} --output ${{ parameters.outputPath }}/${{ parameters.name }}_efbundle.exe"
+    env:
+      ConnectionStrings__DefaultConnection: ${{ parameters.connStr }}

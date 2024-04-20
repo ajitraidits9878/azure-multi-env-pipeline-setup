@@ -1,0 +1,32 @@
+# Pipeline: Service2 - PR Validation (DEV)
+# Trigger: Pull Requests targeting the 'dev' branch
+# Purpose: Run build and unit tests before merging feature branches
+
+name: Service2 - PR Validation
+
+pr:
+  branches:
+    include:
+      - dev
+  paths:
+    include:
+      - /src/Service2/*
+      - /tests/Service2/*
+    exclude:
+      - /Azure/*
+      - /DevOps/*
+
+pool:
+  name: "Default"
+
+workspace:
+  clean: all
+
+steps:
+  - template: "../../templates/SetupBuildTemplatePR.yml"
+    parameters:
+      project: "src/Service2/Service2.sln"
+
+  - template: "../../templates/RunUnitTests.yml"
+    parameters:
+      project: "src/Service2/Service2.sln"

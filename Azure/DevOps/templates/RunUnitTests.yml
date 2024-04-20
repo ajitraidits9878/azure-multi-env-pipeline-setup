@@ -1,0 +1,39 @@
+parameters:
+  - name: project
+    type: string
+
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: "Run Unit Tests"
+    inputs:
+      command: test
+      projects: "${{ parameters.project }}"
+      arguments: '--filter:"FullyQualifiedName~.UnitTests." --collect:"XPlat Code Coverage" --settings:coverlet.runsettings'
+
+  - task: PowerShell@2
+    displayName: "Check Code Coverage File"
+    inputs:
+      targetType: "inline"
+      script: |
+        $coverageFile = "/agent/_work/_temp/**/coverage.opencover.xml"
+        if (Test-Path -Path $coverageFile) {
+          Write-Host "Coverage data found. Proceeding with publishing."
+          Write-Host "##vso[task.setvariable variable=CoverageDataFound]True"
+        } else {
+          Write-Host "No coverage data found. Skipping the Publish Code Coverage Results step."
+          Write-Host "##vso[task.setvariable variable=CoverageDataFound]False"
+        }
+
+  - script: |
+      dotnet tool install dotnet-reportgenerator-globaltool --tool-path .
+      ./reportgenerator "-reports:/agent/_work/_temp/**/coverage.opencover.xml" "-targetdir:$(Build.SourcesDirectory)/coverage" "-reporttypes:Cobertura;HTMLInline;HTMLChart"
+    displayName: Generate Coverage Report
+    condition: eq(variables['CoverageDataFound'], 'True')
+
+  - task: PublishCodeCoverageResults@2
+    displayName: "Publish Code Coverage Results"
+    inputs:
+      codeCoverageTool: "cobertura"
+      summaryFileLocation: "$(Build.SourcesDirectory)/coverage/Cobertura.xml"
+      failIfCoverageEmpty: true
+    condition: eq(variables['CoverageDataFound'], 'True')

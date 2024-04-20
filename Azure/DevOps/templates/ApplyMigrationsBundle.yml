@@ -1,0 +1,30 @@
+parameters:
+  - name: name
+    type: string
+  - name: spnName
+    type: string
+  - name: connStr
+    type: string
+  - name: bundlePath
+    type: string
+
+steps:
+  - task: PowerShell@2
+    displayName: "Clear AZ Context"
+
+    inputs:
+      targetType: "inline"
+      script: |
+        Clear-AzContext -Scope CurrentUser -Force -ErrorAction:Stop
+        Clear-AzContext -Scope Process -Force -ErrorAction:Stop
+
+  - task: AzurePowerShell@5
+    displayName: "Apply EF Migrations Bundle - ${{ parameters.name }}"
+    retryCountOnTaskFailure: 2
+    inputs:
+      azureSubscription: "${{ parameters.spnName }}"
+      scriptType: "inlineScript"
+      azurePowerShellVersion: latestVersion
+      inline: "${{ parameters.bundlePath }}/${{ parameters.name }}_efbundle.exe --verbose --connection '${{ parameters.connStr }}'"
+    env:
+      ConnectionStrings__DefaultConnection: ${{ parameters.connStr }}
